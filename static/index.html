@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Oriden Flow</title>
+<style>
+:root{font-family:Inter,Segoe UI,Arial,sans-serif;color:#e7edf7;background:#0a1020}*{box-sizing:border-box}body{margin:0}main{max-width:1150px;margin:auto;padding:30px 20px}header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #26354d;padding:20px 5%;background:#101a2d}h1{font-size:31px;margin-bottom:8px}h2{font-size:19px}p,small{color:#a5b4ca}section{border:1px solid #2b3950;background:#111e33;border-radius:18px;padding:23px;margin:22px 0}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}.card{background:#17253d;border-radius:12px;padding:18px}input,select,textarea{width:100%;border:1px solid #42536d;border-radius:9px;background:#0c1627;color:#f2f5fa;padding:12px;margin:8px 0 14px;font:inherit}textarea{min-height:175px;resize:vertical}label{display:block;font-size:14px;color:#bdc9da}button{border:0;border-radius:10px;background:#48dec4;color:#102133;font-weight:700;padding:12px 18px;cursor:pointer}button:disabled{opacity:.5;cursor:wait}a{color:#63e8cc}.muted{color:#93a4be}.line{border-top:1px solid #293a54;padding:12px 0}#message{white-space:pre-wrap}
+</style></head><body><header><b>◈ ORIDEN FLOW</b><span class="muted">Estúdio local · MVP 1.0</span></header><main>
+<h1>Central de produção</h1><p>Crie vídeos verticais para nossos dois canais. As publicações no TikTok são manuais nesta versão.</p>
+<div class="cards" id="channels"></div>
+<section><h2>Novo vídeo</h2><form id="form"><label>Canal<select id="channel"></select></label><label>Título<input id="title" required minlength="2" maxlength="120" placeholder="Uma curiosidade que quase ninguém conhece"></label><label>Texto das cenas (uma cena por linha; 2 a 8 linhas)<textarea id="scenes" required>Você sabia que o polvo tem três corações?
+Dois deles bombeiam sangue para as brânquias.
+O terceiro envia o sangue para o resto do corpo.
+A natureza é cheia de surpresas!</textarea></label><label style="display:flex;gap:10px;align-items:center"><input id="voice" type="checkbox" style="width:auto;margin:0">Gerar narração básica com eSpeak (se estiver instalado)</label><button id="render" type="submit">Gerar MP4 vertical</button></form><p id="message"></p></section>
+<section><h2>Histórico de produção</h2><div id="history" class="muted">Carregando…</div></section>
+<section><h2>Estado das integrações</h2><p id="health">Verificando…</p><small>Sem APIs do TikTok ou ferramentas pagas de IA integradas. Vídeos são salvos apenas no seu computador.</small></section>
+</main><script>
+const $ = id=>document.getElementById(id);
+async function api(path,opts){const r=await fetch(path,opts);const x=await r.json();if(!r.ok)throw new Error(x.detail||"Erro de solicitação");return x}
+async function load(){
+ const channels=await api("/api/channels");
+ $("channels").replaceChildren();$("channel").replaceChildren();
+ for(const c of channels){
+ const card=document.createElement("div");card.className="card";const h=document.createElement("h2");h.textContent=c.name;const p=document.createElement("p");p.textContent=c.handle+" · "+c.niche;card.append(h,p);$("channels").append(card);
+ const opt=document.createElement("option");opt.value=c.id;opt.textContent=c.name+" ("+c.handle+")";$("channel").append(opt)}
+ const hist=await api("/api/videos");$("history").replaceChildren();
+ if(!hist.length)$("history").textContent="Nenhum vídeo produzido ainda.";
+ for(const item of hist){const div=document.createElement("div");div.className="line";div.textContent=item.channel+" · "+item.title+" · "+item.status+" ";if(item.url){const a=document.createElement("a");a.href=item.url;a.textContent="Baixar MP4";a.download="oriden-"+item.id+".mp4";div.append(a)}$("history").append(div)}
+ const h=await api("/api/health");$("health").textContent="FFmpeg: "+(h.ffmpeg?"disponível":"não instalado")+" · eSpeak: "+(h.espeak?"disponível":"não instalado")
+}
+$("form").addEventListener("submit",async e=>{e.preventDefault();$("render").disabled=true;$("message").textContent="Processando vídeo localmente…";try{const scenes=$("scenes").value.split("\n").map(x=>x.trim()).filter(Boolean);if(scenes.length<2||scenes.length>8)throw Error("Use entre 2 e 8 cenas.");const out=await api("/api/render",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({channel_id:Number($("channel").value),title:$("title").value,scenes,voice:$("voice").checked})});$("message").textContent="Vídeo pronto! "+(out.voice_generated?"Com narração.":"Sem narração.");await load()}catch(err){$("message").textContent=err.message}finally{$("render").disabled=false}});
+load().catch(e=>$("message").textContent=e.message);
+</script></body></html>
